@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import FavoriteButton from '../common/FavoriteButton'
+import LazyImage from '../common/LazyImage'
 import { formatPrice, truncate } from '../../utils/helpers'
 import { Share2, ShoppingCart, Archive } from 'lucide-react'
 
@@ -51,13 +52,12 @@ export default function GunCard({ gun, onSelect, onEdit, onDelete, onAddToCart, 
         onClick={() => onSelect(gun)}
         aria-label={`View ${gun.name}`}
       >
-        <img
-          className="card-img"
+        {/* Challenge 2: Lazy Loaded Image on scroll */}
+        <LazyImage
           src={imgSrc}
           alt={gun.name}
           width="240"
-          height="180"
-          loading="lazy"
+          height={180}
         />
 
         <span className="name display">{gun.name}</span>

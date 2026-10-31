@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo } from 'react'
 import { RefreshCw, Plus, Loader, AlertCircle, PackageOpen } from 'lucide-react'
 import { useGuns } from '../hooks/useGuns'
 import GUNS_LOCAL from '../data/guns'
@@ -16,7 +16,7 @@ import {
 } from '../utils/helpers'
 
 /**
- * Catalog page — product listing with lazy loading on scroll (Challenge 2)
+ * Catalog page — product listing with image lazy loading on scroll (Challenge 2)
  * and soft-delete/archive filter (Challenge 6).
  */
 export default function Catalog({ onNavigate, onAddToCart }) {
@@ -25,13 +25,12 @@ export default function Catalog({ onNavigate, onAddToCart }) {
   const [useLocal, setUseLocal] = useState(false)
   const [archiveVersion, setArchiveVersion] = useState(0)
 
-  // Soft delete check
+  // Soft delete check: exclude archived guns
   const rawGuns = useMemo(() => {
     let source = apiGuns
     if (useLocal || (error && apiGuns.length === 0)) {
       source = GUNS_LOCAL.map((g, i) => ({ ...g, id: g.id || `local-${i}` }))
     }
-    // Filter out archived (soft-deleted) items
     return source.filter((g) => !isGunArchived(g.id))
   }, [apiGuns, error, useLocal, archiveVersion])
 
@@ -50,47 +49,10 @@ export default function Catalog({ onNavigate, onAddToCart }) {
     return sortItems(result, sortKey, sortOrder)
   }, [rawGuns, search, activeCategory, sortKey, sortOrder])
 
-  // ---- Challenge 2: Lazy Loading on Scroll (Infinite Scroll) ----
-  const BATCH_SIZE = 6
-  const [visibleCount, setVisibleCount] = useState(BATCH_SIZE)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const sentinelRef = useRef(null)
-
-  // Reset batch count when filter changes
-  useEffect(() => {
-    setVisibleCount(BATCH_SIZE)
-  }, [search, activeCategory, sortKey, sortOrder])
-
-  // IntersectionObserver to load more items on scroll
-  useEffect(() => {
-    const sentinel = sentinelRef.current
-    if (!sentinel) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && visibleCount < filteredGuns.length) {
-          setIsLoadingMore(true)
-          setTimeout(() => {
-            setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, filteredGuns.length))
-            setIsLoadingMore(false)
-          }, 300)
-        }
-      },
-      { threshold: 0.1, rootMargin: '120px' },
-    )
-
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [filteredGuns.length, visibleCount])
-
-  const displayedGuns = useMemo(() => {
-    return filteredGuns.slice(0, visibleCount)
-  }, [filteredGuns, visibleCount])
-
   // ---- detail view ----
   const [selectedGun, setSelectedGun] = useState(null)
 
-  // ---- delete ----
+  // ---- delete / archive ----
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
@@ -101,7 +63,7 @@ export default function Catalog({ onNavigate, onAddToCart }) {
     setTimeout(() => setToastMsg(''), 3000)
   }
 
-  // Soft Delete / Archive handler
+  // Soft Delete / Archive handler (Challenge 6)
   const handleArchive = (gun) => {
     archiveGunLocally(gun)
     setArchiveVersion((v) => v + 1)
@@ -166,7 +128,7 @@ export default function Catalog({ onNavigate, onAddToCart }) {
           <h2>Current stock</h2>
           <div className="list-head-right">
             <span className="count">
-              Showing {displayedGuns.length} of {filteredGuns.length} piece{filteredGuns.length !== 1 ? 's' : ''}
+              {filteredGuns.length} piece{filteredGuns.length !== 1 ? 's' : ''}
             </span>
             {onNavigate && (
               <button
@@ -226,10 +188,10 @@ export default function Catalog({ onNavigate, onAddToCart }) {
           </div>
         )}
 
-        {/* Product grid with Lazy Loading */}
-        {displayedGuns.length > 0 && (
+        {/* Product grid with all cards visible, images lazy-loaded on scroll */}
+        {filteredGuns.length > 0 && (
           <ul className="stock">
-            {displayedGuns.map((gun) => (
+            {filteredGuns.map((gun) => (
               <GunCard
                 key={gun.id || gun.name}
                 gun={gun}
@@ -244,20 +206,6 @@ export default function Catalog({ onNavigate, onAddToCart }) {
               />
             ))}
           </ul>
-        )}
-
-        {/* Sentinel for lazy loading on scroll */}
-        {visibleCount < filteredGuns.length && (
-          <div
-            ref={sentinelRef}
-            className="state-box"
-            style={{ padding: '20px', margin: '20px 0', borderStyle: 'dashed' }}
-          >
-            <Loader size={20} className="spin" />
-            <p style={{ margin: 0, fontSize: '0.9rem' }}>
-              Scroll down to load more weapons ({visibleCount}/{filteredGuns.length})…
-            </p>
-          </div>
         )}
 
         {useLocal && (
