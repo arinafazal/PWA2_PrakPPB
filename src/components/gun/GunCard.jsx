@@ -1,20 +1,36 @@
 import FavoriteButton from '../common/FavoriteButton'
 import { formatPrice, truncate } from '../../utils/helpers'
+import { Share2, ShoppingCart } from 'lucide-react'
 
 /**
  * Product card used in the catalog grid.
  *
  * @param {Object}   props
- * @param {Object}   props.gun       — product data
- * @param {Function} props.onSelect  — called with the gun when clicked
- * @param {Function} [props.onEdit]  — called when Edit is clicked (admin)
- * @param {Function} [props.onDelete]— called when Delete is clicked (admin)
+ * @param {Object}   props.gun          — product data
+ * @param {Function} props.onSelect     — called with the gun when clicked
+ * @param {Function} [props.onEdit]     — called when Edit is clicked
+ * @param {Function} [props.onDelete]   — called when Delete is clicked
+ * @param {Function} [props.onAddToCart]— called when Add to Cart is clicked
  */
-export default function GunCard({ gun, onSelect, onEdit, onDelete }) {
+export default function GunCard({ gun, onSelect, onEdit, onDelete, onAddToCart }) {
   const imgSrc = gun.image_url || gun.image || '/guns/pistol.svg'
   const category = gun.type || gun.category || '—'
   const caliber = gun.caliber || gun.difficulty || ''
   const price = gun.price ?? gun.cook_time ?? 0
+
+  const handleShare = async (e) => {
+    e.stopPropagation()
+    const shareUrl = `${window.location.origin}${window.location.pathname}?gun=${gun.id}`
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: gun.name, text: gun.description || '', url: shareUrl })
+      } catch {}
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareUrl)
+      } catch {}
+    }
+  }
 
   return (
     <li className="card">
@@ -50,6 +66,30 @@ export default function GunCard({ gun, onSelect, onEdit, onDelete }) {
       {/* Floating actions row */}
       <div className="card-actions">
         <FavoriteButton gunId={gun.id || gun.name} />
+
+        {/* Add to Cart */}
+        {onAddToCart && (
+          <button
+            type="button"
+            className="card-act-btn"
+            onClick={(e) => { e.stopPropagation(); onAddToCart(gun) }}
+            aria-label={`Add ${gun.name} to cart`}
+            title="Add to Cart"
+          >
+            <ShoppingCart size={14} />
+          </button>
+        )}
+
+        {/* Share */}
+        <button
+          type="button"
+          className="card-act-btn"
+          onClick={handleShare}
+          aria-label={`Share ${gun.name}`}
+          title="Share"
+        >
+          <Share2 size={14} />
+        </button>
 
         {onEdit && (
           <button

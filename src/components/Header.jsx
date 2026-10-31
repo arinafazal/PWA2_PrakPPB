@@ -1,21 +1,24 @@
-import { Plus } from 'lucide-react'
+import { Plus, ShoppingCart } from 'lucide-react'
 import { useFavorites } from '../hooks/useFavorites'
 
+// Challenge 4: About & Contact dipindah ke Profile, header hanya Catalog, Favorites, Profile
 const NAV_ITEMS = [
   { id: 'Catalog', label: 'Catalog' },
   { id: 'Favorites', label: 'Favorites', hasBadge: true },
   { id: 'Profile', label: 'Profile' },
-  { id: 'About', label: 'About' },
-  { id: 'Contact', label: 'Contact' },
 ]
 
-function Header({ tab, onTab, onNavigateCreate }) {
+function Header({ tab, onTab, onNavigateCreate, onOpenCart, cartCount }) {
   const { favorites } = useFavorites()
   const favCount = favorites ? favorites.length : 0
 
   return (
     <header className="header">
-      <div className="header-brand-wrap" onClick={() => onTab('Catalog')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div
+        className="header-brand-wrap"
+        onClick={() => onTab('Catalog')}
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
+      >
         <div className="header-logo-badge">
           <img src="/logo.png" alt="Bore & Barrel" />
         </div>
@@ -38,16 +41,39 @@ function Header({ tab, onTab, onNavigateCreate }) {
         ))}
       </nav>
 
-      {onNavigateCreate && (
-        <button
-          type="button"
-          className="btn btn--primary btn--sm header-cta"
-          onClick={onNavigateCreate}
-          title="Register new hardware"
-        >
-          <Plus size={15} /> Add Hardware
-        </button>
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* Challenge 9: Cart button */}
+        {onOpenCart && (
+          <button
+            type="button"
+            className="btn btn--outline btn--sm"
+            onClick={onOpenCart}
+            title="Open cart"
+            style={{ position: 'relative' }}
+          >
+            <ShoppingCart size={16} />
+            {cartCount > 0 && (
+              <span
+                className="nav-badge"
+                style={{ position: 'absolute', top: '-6px', right: '-6px' }}
+              >
+                {cartCount}
+              </span>
+            )}
+          </button>
+        )}
+
+        {onNavigateCreate && (
+          <button
+            type="button"
+            className="btn btn--primary btn--sm header-cta"
+            onClick={onNavigateCreate}
+            title="Register new hardware"
+          >
+            <Plus size={15} /> Add Hardware
+          </button>
+        )}
+      </div>
     </header>
   )
 }

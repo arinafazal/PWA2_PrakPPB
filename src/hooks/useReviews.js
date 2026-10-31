@@ -75,3 +75,84 @@ export function useCreateReview() {
 
   return { createReview, loading, error, success }
 }
+
+// ---------------------------------------------------------------------------
+// useUpdateReview — edit an existing review.
+// ---------------------------------------------------------------------------
+
+export function useUpdateReview() {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const updateReview = async (reviewId, data) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await reviewService.updateReview(reviewId, data)
+      return response.success ? response.data : null
+    } catch (err) {
+      setError(err.message || 'Failed to update review.')
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return { updateReview, loading, error }
+}
+
+// ---------------------------------------------------------------------------
+// useDeleteReview — delete a review.
+// ---------------------------------------------------------------------------
+
+export function useDeleteReview() {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const deleteReview = async (reviewId) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await reviewService.deleteReview(reviewId)
+      return response.success
+    } catch (err) {
+      setError(err.message || 'Failed to delete review.')
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return { deleteReview, loading, error }
+}
+
+// ---------------------------------------------------------------------------
+// useThumbsReview — track thumbs up / thumbs down per review in localStorage.
+// ---------------------------------------------------------------------------
+
+export function useThumbsReview(reviewId) {
+  const key = `review_thumb_${reviewId}`
+  const [thumb, setThumb] = useState(() => localStorage.getItem(key) || null) // 'up' | 'down' | null
+
+  const setThumbUp = () => {
+    const next = thumb === 'up' ? null : 'up'
+    if (next) {
+      localStorage.setItem(key, next)
+    } else {
+      localStorage.removeItem(key)
+    }
+    setThumb(next)
+  }
+
+  const setThumbDown = () => {
+    const next = thumb === 'down' ? null : 'down'
+    if (next) {
+      localStorage.setItem(key, next)
+    } else {
+      localStorage.removeItem(key)
+    }
+    setThumb(next)
+  }
+
+  return { thumb, setThumbUp, setThumbDown }
+}

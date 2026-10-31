@@ -196,7 +196,7 @@ class GunService {
   }
 
   /**
-   * Delete product.
+   * Delete product (permanent).
    */
   async deleteGun(id) {
     if (IS_SUPABASE) {
@@ -204,6 +204,50 @@ class GunService {
       return { success: true }
     }
     return apiClient.delete(`/api/v1/recipes/${id}`)
+  }
+
+  /**
+   * Soft-delete (archive) a product — sets archived = true.
+   */
+  async archiveGun(id) {
+    if (IS_SUPABASE) {
+      const res = await apiClient.patch(
+        `/rest/v1/products?id=eq.${id}`,
+        { archived: true, updated_at: new Date().toISOString() },
+        { headers: { Prefer: 'return=representation' } },
+      )
+      return { success: true, data: Array.isArray(res) ? res[0] : res }
+    }
+    return apiClient.patch(`/api/v1/recipes/${id}`, { archived: true })
+  }
+
+  /**
+   * Restore an archived product — sets archived = false.
+   */
+  async restoreGun(id) {
+    if (IS_SUPABASE) {
+      const res = await apiClient.patch(
+        `/rest/v1/products?id=eq.${id}`,
+        { archived: false, updated_at: new Date().toISOString() },
+        { headers: { Prefer: 'return=representation' } },
+      )
+      return { success: true, data: Array.isArray(res) ? res[0] : res }
+    }
+    return apiClient.patch(`/api/v1/recipes/${id}`, { archived: false })
+  }
+
+  /**
+   * Fetch all archived products.
+   */
+  async getArchivedGuns() {
+    if (IS_SUPABASE) {
+      const data = await apiClient.get(
+        `/rest/v1/products?archived=eq.true&select=*&order=updated_at.desc`,
+      )
+      const list = Array.isArray(data) ? data.map(normalizeProduct) : []
+      return { success: true, data: list }
+    }
+    return { success: true, data: [] }
   }
 }
 

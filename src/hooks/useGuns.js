@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import gunService from '../services/gunService'
+import { getCached, setCached, invalidateCacheByPrefix } from './useQueryCache'
 
 // ---------------------------------------------------------------------------
 // useGuns — fetch the paginated / filtered product list from the API.
 //
 // Returns { guns, loading, error, pagination, refetch }.
-// When the API is unreachable the `error` string will be set and `guns`
-// will remain an empty array so the UI can show a proper error state.
+// Results are cached in-memory for 5 minutes (via useQueryCache).
+// Calling refetch() bypasses the cache and fetches fresh data.
 // ---------------------------------------------------------------------------
 
 export function useGuns(params = {}) {
@@ -19,6 +20,16 @@ export function useGuns(params = {}) {
   const paramKey = JSON.stringify(params)
 
   const fetchGuns = useCallback(async () => {
+    const cacheKey = 'guns:' + JSON.stringify(params)
+
+    // Serve from cache if available
+    const cached = getCached(cacheKey)
+    if (cached) {
+      setGuns(cached)
+      setLoading(false)
+      return
+    }
+
     try {
       setLoading(true)
       setError(null)
@@ -28,6 +39,7 @@ export function useGuns(params = {}) {
       if (response.success) {
         setGuns(response.data || [])
         setPagination(response.pagination || null)
+        setCached(cacheKey, response.data || [])
       } else {
         setError(response.message || 'Failed to fetch products.')
       }
@@ -40,11 +52,17 @@ export function useGuns(params = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paramKey])
 
+  // Manual refetch always bypasses cache
+  const refetch = useCallback(async () => {
+    invalidateCacheByPrefix('guns:')
+    await fetchGuns()
+  }, [fetchGuns])
+
   useEffect(() => {
     fetchGuns()
   }, [fetchGuns])
 
-  return { guns, loading, error, pagination, refetch: fetchGuns }
+  return { guns, loading, error, pagination, refetch }
 }
 
 // ---------------------------------------------------------------------------
