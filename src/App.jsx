@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import Header from './components/Header.jsx'
 import Footer from './components/Footer.jsx'
 import CartPanel from './components/CartPanel.jsx'
