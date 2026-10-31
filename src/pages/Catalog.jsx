@@ -21,7 +21,7 @@ import {
  */
 export default function Catalog({ onNavigate, onAddToCart }) {
   // ---- API data ----
-  const { guns: apiGuns, loading, error, refetch } = useGuns({ limit: 50 })
+  const { guns: apiGuns, loading, error, refetch, fromCache, cacheInfo } = useGuns({ limit: 50 })
   const [useLocal, setUseLocal] = useState(false)
   const [archiveVersion, setArchiveVersion] = useState(0)
 
@@ -126,7 +126,28 @@ export default function Catalog({ onNavigate, onAddToCart }) {
       <section>
         <div className="list-head">
           <h2>Current stock</h2>
-          <div className="list-head-right">
+          <div className="list-head-right" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {/* Challenge 3: Query Caching indicator — shows disk cache status */}
+            {fromCache && cacheInfo && (
+              <span
+                title={`Data dari disk cache • Disimpan pukul ${cacheInfo.cachedAt} • Expires: ${cacheInfo.expiresIn} lagi`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '0.72rem',
+                  padding: '2px 8px',
+                  borderRadius: '20px',
+                  background: 'rgba(39,174,96,0.12)',
+                  color: '#27ae60',
+                  fontWeight: 600,
+                  border: '1px solid rgba(39,174,96,0.25)',
+                  cursor: 'help',
+                }}
+              >
+                💾 Disk Cache · {cacheInfo.cachedAt}
+              </span>
+            )}
             <span className="count">
               {filteredGuns.length} piece{filteredGuns.length !== 1 ? 's' : ''}
             </span>

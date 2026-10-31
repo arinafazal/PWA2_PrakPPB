@@ -1,19 +1,5 @@
 {
   "rewrites": [
-    {
-      "source": "/rest/v1/:path*",
-      "destination": "https://sxunubxupdxyupnebuid.supabase.co/rest/v1/:path*"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/rest/v1/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=86400, s-maxage=86400"
-        }
-      ]
-    }
+    { "source": "/(.*)", "destination": "/" }
   ]
 }

@@ -1,14 +1,14 @@
 // ---------------------------------------------------------------------------
-// useQueryCache.js — dual-layer query cache (in-memory + browser disk Cache Storage)
-// When inspected in DevTools Network/Application tab, entries are stored in disk cache.
+// useQueryCache.js — Query cache dengan localStorage sebagai disk storage.
+// Data di-cache selama TTL, dan setelah itu di-fetch ulang dari server.
+// Cache ini membuat request API hanya terjadi SEKALI, berikutnya dari disk.
 // ---------------------------------------------------------------------------
 
 const MEMORY_CACHE = new Map()
-const CACHE_NAME = 'api-query-cache'
-const CACHE_TTL = 24 * 60 * 60 * 1000 // 24 hours
+const CACHE_TTL = 24 * 60 * 60 * 1000 // 24 jam
 
 export function getCached(key) {
-  // 1. In-memory check
+  // 1. Cek memory cache (paling cepat)
   const mem = MEMORY_CACHE.get(key)
   if (mem) {
     if (Date.now() - mem.timestamp <= CACHE_TTL) {
@@ -17,16 +17,16 @@ export function getCached(key) {
     MEMORY_CACHE.delete(key)
   }
 
-  // 2. LocalStorage disk fallback
+  // 2. Cek localStorage (disk cache — bertahan meski browser di-refresh)
   try {
-    const raw = localStorage.getItem(`cache_${key}`)
+    const raw = localStorage.getItem(`qcache_${key}`)
     if (raw) {
       const parsed = JSON.parse(raw)
       if (Date.now() - parsed.timestamp <= CACHE_TTL) {
-        MEMORY_CACHE.set(key, parsed)
+        MEMORY_CACHE.set(key, parsed) // naikan ke memory
         return parsed.data
       }
-      localStorage.removeItem(`cache_${key}`)
+      localStorage.removeItem(`qcache_${key}`)
     }
   } catch {}
 
@@ -37,15 +37,13 @@ export function setCached(key, data) {
   const entry = { data, timestamp: Date.now() }
   MEMORY_CACHE.set(key, entry)
   try {
-    localStorage.setItem(`cache_${key}`, JSON.stringify(entry))
+    localStorage.setItem(`qcache_${key}`, JSON.stringify(entry))
   } catch {}
 }
 
 export function invalidateCache(key) {
   MEMORY_CACHE.delete(key)
-  try {
-    localStorage.removeItem(`cache_${key}`)
-  } catch {}
+  try { localStorage.removeItem(`qcache_${key}`) } catch {}
 }
 
 export function invalidateCacheByPrefix(prefix) {
@@ -53,11 +51,30 @@ export function invalidateCacheByPrefix(prefix) {
     if (k.startsWith(prefix)) MEMORY_CACHE.delete(k)
   }
   try {
+    const toDelete = []
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)
-      if (k && k.startsWith(`cache_${prefix}`)) {
-        localStorage.removeItem(k)
-      }
+      if (k && k.startsWith(`qcache_${prefix}`)) toDelete.push(k)
     }
+    toDelete.forEach((k) => localStorage.removeItem(k))
   } catch {}
+}
+
+export function isCached(key) {
+  return getCached(key) !== null
+}
+
+export function getCacheInfo(key) {
+  try {
+    const raw = localStorage.getItem(`qcache_${key}`)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return {
+      cachedAt: new Date(parsed.timestamp).toLocaleTimeString(),
+      expiresIn: Math.round((CACHE_TTL - (Date.now() - parsed.timestamp)) / 1000 / 60) + ' menit',
+      count: Array.isArray(parsed.data) ? parsed.data.length : 1,
+    }
+  } catch {
+    return null
+  }
 }

@@ -1,13 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import gunService from '../services/gunService'
-import { getCached, setCached, invalidateCacheByPrefix } from './useQueryCache'
+import { getCached, setCached, invalidateCacheByPrefix, getCacheInfo } from './useQueryCache'
 
 // ---------------------------------------------------------------------------
-// useGuns — fetch the paginated / filtered product list from the API.
-//
-// Returns { guns, loading, error, pagination, refetch }.
-// Results are cached in-memory for 5 minutes (via useQueryCache).
-// Calling refetch() bypasses the cache and fetches fresh data.
+// useGuns — Fetch products with query caching (memory + localStorage disk).
+// First load fetches from API. Subsequent loads served instantly from cache.
+// refetch() clears cache and fetches fresh data.
 // ---------------------------------------------------------------------------
 
 export function useGuns(params = {}) {
@@ -15,20 +13,38 @@ export function useGuns(params = {}) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [pagination, setPagination] = useState(null)
+  const [fromCache, setFromCache] = useState(false)
+  const [cacheInfo, setCacheInfoState] = useState(null)
 
-  // Serialise params so the effect re-runs when they change.
   const paramKey = JSON.stringify(params)
 
   const fetchGuns = useCallback(async () => {
+    const cacheKey = 'guns:' + JSON.stringify(params)
+
+    // Cek cache dulu (memory + localStorage)
+    const cached = getCached(cacheKey)
+    if (cached) {
+      setGuns(cached)
+      setLoading(false)
+      setFromCache(true)
+      setCacheInfoState(getCacheInfo(cacheKey))
+      return
+    }
+
     try {
       setLoading(true)
       setError(null)
+      setFromCache(false)
+      setCacheInfoState(null)
 
       const response = await gunService.getGuns(params)
 
       if (response.success) {
         setGuns(response.data || [])
         setPagination(response.pagination || null)
+        // Simpan ke cache (memory + localStorage)
+        setCached(cacheKey, response.data || [])
+        setCacheInfoState(getCacheInfo(cacheKey))
       } else {
         setError(response.message || 'Failed to fetch products.')
       }
@@ -38,11 +54,13 @@ export function useGuns(params = {}) {
     } finally {
       setLoading(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paramKey])
 
-  // Manual refetch
+  // refetch() selalu invalidate cache lalu fetch ulang dari API
   const refetch = useCallback(async () => {
+    invalidateCacheByPrefix('guns:')
+    setFromCache(false)
     await fetchGuns()
   }, [fetchGuns])
 
@@ -50,14 +68,8 @@ export function useGuns(params = {}) {
     fetchGuns()
   }, [fetchGuns])
 
-  return { guns, loading, error, pagination, refetch }
+  return { guns, loading, error, pagination, refetch, fromCache, cacheInfo }
 }
-
-// ---------------------------------------------------------------------------
-// useGunById — fetch a single product by its UUID.
-//
-// Returns { gun, loading, error, refetch }.
-// ---------------------------------------------------------------------------
 
 export function useGunById(id) {
   const [gun, setGun] = useState(null)
@@ -65,32 +77,21 @@ export function useGunById(id) {
   const [error, setError] = useState(null)
 
   const fetchGun = useCallback(async () => {
-    if (!id) {
-      setLoading(false)
-      return
-    }
+    if (!id) return
     try {
       setLoading(true)
       setError(null)
-
       const response = await gunService.getGunById(id)
-
-      if (response.success) {
-        setGun(response.data)
-      } else {
-        setError(response.message || 'Product not found.')
-      }
+      if (response.success) setGun(response.data)
+      else setError(response.message || 'Gun not found.')
     } catch (err) {
-      setError(err.message || 'Failed to load product details.')
-      setGun(null)
+      setError(err.message || 'Error fetching gun.')
     } finally {
       setLoading(false)
     }
   }, [id])
 
-  useEffect(() => {
-    fetchGun()
-  }, [fetchGun])
+  useEffect(() => { fetchGun() }, [fetchGun])
 
   return { gun, loading, error, refetch: fetchGun }
 }
