@@ -1,37 +1,65 @@
 import { useState, useEffect, useCallback } from 'react'
-import gunService from '../services/gunService'
+import {
+  getArchivedGuns,
+  archiveGunLocally,
+  restoreGunLocally,
+  deleteArchivedGunPermanently,
+} from '../utils/archiveStorage'
 
 // ---------------------------------------------------------------------------
-// useArchivedGuns — fetch all soft-deleted (archived) products.
-// Returns { archivedGuns, loading, error, refetch }.
+// useArchivedGuns — Manage soft-deleted / archived products (Challenge 6)
 // ---------------------------------------------------------------------------
 
 export function useArchivedGuns() {
-  const [archivedGuns, setArchivedGuns] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [archivedGuns, setArchivedGuns] = useState(getArchivedGuns)
+  const [loading, setLoading] = useState(false)
 
-  const fetchArchived = useCallback(async () => {
+  const fetchArchived = useCallback(() => {
+    setLoading(true)
     try {
-      setLoading(true)
-      setError(null)
-      const response = await gunService.getArchivedGuns()
-      if (response.success) {
-        setArchivedGuns(response.data || [])
-      } else {
-        setError(response.message || 'Failed to fetch archived items.')
-      }
-    } catch (err) {
-      setError(err.message || 'Error fetching archived items.')
-      setArchivedGuns([])
+      const list = getArchivedGuns()
+      setArchivedGuns(list)
     } finally {
       setLoading(false)
     }
   }, [])
 
+  const archiveGun = useCallback((gun) => {
+    const ok = archiveGunLocally(gun)
+    if (ok) setArchivedGuns(getArchivedGuns())
+    return ok
+  }, [])
+
+  const restoreGun = useCallback((gunId) => {
+    const ok = restoreGunLocally(gunId)
+    if (ok) setArchivedGuns(getArchivedGuns())
+    return ok
+  }, [])
+
+  const deletePermanent = useCallback((gunId) => {
+    const ok = deleteArchivedGunPermanently(gunId)
+    if (ok) setArchivedGuns(getArchivedGuns())
+    return ok
+  }, [])
+
   useEffect(() => {
     fetchArchived()
+    // Listen to storage events across tabs or local changes
+    const onStorage = (e) => {
+      if (e.key === 'bore_barrel_archived_guns') {
+        fetchArchived()
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
   }, [fetchArchived])
 
-  return { archivedGuns, loading, error, refetch: fetchArchived }
+  return {
+    archivedGuns,
+    loading,
+    archiveGun,
+    restoreGun,
+    deletePermanent,
+    refetch: fetchArchived,
+  }
 }

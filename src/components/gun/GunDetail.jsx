@@ -103,7 +103,7 @@ function ReviewItem({ rev, onDelete, onEdit }) {
  * @param {Function} [props.onDelete]   — trigger permanent delete flow
  * @param {Function} [props.onAddToCart]— add to cart
  */
-export default function GunDetail({ gun, onBack, onEdit, onDelete, onAddToCart }) {
+export default function GunDetail({ gun, onBack, onEdit, onDelete, onAddToCart, onArchive }) {
   const imgSrc = gun.image_url || gun.image || '/guns/pistol.svg'
   const category = gun.type || gun.category || '—'
   const caliber = gun.caliber || gun.difficulty || ''
@@ -293,27 +293,24 @@ export default function GunDetail({ gun, onBack, onEdit, onDelete, onAddToCart }
             )}
 
             {/* Archive (soft delete) */}
-            {onDelete && (
-              <button
-                type="button"
-                className="btn btn--outline"
-                disabled={archiving}
-                onClick={async () => {
-                  if (!window.confirm(`Archive "${gun.name}"?`)) return
-                  try {
-                    setArchiving(true)
-                    const { default: gunService } = await import('../../services/gunService')
-                    await gunService.archiveGun(gun.id)
-                    onBack()
-                  } finally {
-                    setArchiving(false)
-                  }
-                }}
-                title="Archive (soft delete)"
-              >
-                {archiving ? <Loader size={16} className="spin" /> : <Archive size={16} />} Archive
-              </button>
-            )}
+            <button
+              type="button"
+              className="btn btn--outline"
+              disabled={archiving}
+              onClick={async () => {
+                if (!window.confirm(`Arsipkan "${gun.name}" (Soft Delete)? Item bisa dipulihkan kembali di halaman Profile.`)) return
+                if (onArchive) {
+                  onArchive(gun)
+                } else {
+                  const { archiveGunLocally } = await import('../../utils/archiveStorage.js')
+                  archiveGunLocally(gun)
+                  onBack()
+                }
+              }}
+              title="Arsipkan (Soft Delete)"
+            >
+              <Archive size={16} /> Arsipkan
+            </button>
 
             {/* Permanent delete */}
             {onDelete && (

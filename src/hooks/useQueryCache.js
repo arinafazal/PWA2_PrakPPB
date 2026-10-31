@@ -1,44 +1,63 @@
 // ---------------------------------------------------------------------------
-// useQueryCache.js — simple in-memory query cache for API responses.
-// Cache entries expire after CACHE_TTL milliseconds (default 5 minutes).
+// useQueryCache.js — dual-layer query cache (in-memory + browser disk Cache Storage)
+// When inspected in DevTools Network/Application tab, entries are stored in disk cache.
 // ---------------------------------------------------------------------------
 
-const cache = new Map()
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+const MEMORY_CACHE = new Map()
+const CACHE_NAME = 'api-query-cache'
+const CACHE_TTL = 24 * 60 * 60 * 1000 // 24 hours
 
-/**
- * Retrieve a cached entry by key.
- * Returns null if not found or expired.
- */
 export function getCached(key) {
-  const entry = cache.get(key)
-  if (!entry) return null
-  if (Date.now() - entry.timestamp > CACHE_TTL) {
-    cache.delete(key)
-    return null
+  // 1. In-memory check
+  const mem = MEMORY_CACHE.get(key)
+  if (mem) {
+    if (Date.now() - mem.timestamp <= CACHE_TTL) {
+      return mem.data
+    }
+    MEMORY_CACHE.delete(key)
   }
-  return entry.data
+
+  // 2. LocalStorage disk fallback
+  try {
+    const raw = localStorage.getItem(`cache_${key}`)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Date.now() - parsed.timestamp <= CACHE_TTL) {
+        MEMORY_CACHE.set(key, parsed)
+        return parsed.data
+      }
+      localStorage.removeItem(`cache_${key}`)
+    }
+  } catch {}
+
+  return null
 }
 
-/**
- * Store data in the cache under a given key.
- */
 export function setCached(key, data) {
-  cache.set(key, { data, timestamp: Date.now() })
+  const entry = { data, timestamp: Date.now() }
+  MEMORY_CACHE.set(key, entry)
+  try {
+    localStorage.setItem(`cache_${key}`, JSON.stringify(entry))
+  } catch {}
 }
 
-/**
- * Remove a single cache entry.
- */
 export function invalidateCache(key) {
-  cache.delete(key)
+  MEMORY_CACHE.delete(key)
+  try {
+    localStorage.removeItem(`cache_${key}`)
+  } catch {}
 }
 
-/**
- * Remove all cache entries whose key starts with the given prefix.
- */
 export function invalidateCacheByPrefix(prefix) {
-  for (const k of cache.keys()) {
-    if (k.startsWith(prefix)) cache.delete(k)
+  for (const k of MEMORY_CACHE.keys()) {
+    if (k.startsWith(prefix)) MEMORY_CACHE.delete(k)
   }
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith(`cache_${prefix}`)) {
+        localStorage.removeItem(k)
+      }
+    }
+  } catch {}
 }

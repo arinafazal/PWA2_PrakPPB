@@ -39,6 +39,8 @@ export default function ProfilePage({ onReplaySplash, onEditProfile }) {
     archivedGuns,
     loading: archivedLoading,
     error: archivedError,
+    restoreGun,
+    deletePermanent,
     refetch: refetchArchived,
   } = useArchivedGuns()
   const [restoringId, setRestoringId] = useState(null)
@@ -219,24 +221,18 @@ export default function ProfilePage({ onReplaySplash, onEditProfile }) {
         )}
       </section>
 
-      {/* ── Challenge 6: Archived Items Section ── */}
+      {/* ── Challenge 6: Archived Items Section (Soft Delete) ── */}
       <section className="profile-section">
         <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Archive size={16} /> Archived Items
+          <Archive size={16} /> Kotak Arsip / Soft Delete ({archivedGuns.length})
         </h3>
+        <p style={{ color: 'var(--steel)', fontSize: '0.85rem', marginBottom: '12px' }}>
+          Daftar senjata yang di-soft delete / diarsipkan. Item tidak tampil di katalog utama tetapi dapat dipulihkan (restore) kapan saja.
+        </p>
 
-        {archivedLoading && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--steel)' }}>
-            <Loader size={16} className="spin" /> Loading archived items…
-          </div>
-        )}
-        {!archivedLoading && archivedError && (
-          <p className="form-error">{archivedError}</p>
-        )}
-        {!archivedLoading && !archivedError && archivedGuns.length === 0 && (
-          <p className="detail-empty">No archived items.</p>
-        )}
-        {!archivedLoading && archivedGuns.length > 0 && (
+        {archivedGuns.length === 0 ? (
+          <p className="detail-empty">Belum ada senjata yang diarsipkan.</p>
+        ) : (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {archivedGuns.map((gun) => (
               <li
@@ -262,23 +258,34 @@ export default function ProfilePage({ onReplaySplash, onEditProfile }) {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600 }}>{gun.name}</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--steel)' }}>
-                    {gun.type || gun.category}
+                    {gun.type || gun.category} {gun.caliber ? `· ${gun.caliber}` : ''}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className="btn btn--outline btn--sm"
-                  onClick={() => handleRestore(gun.id)}
-                  disabled={restoringId === gun.id}
-                  title="Restore to catalog"
-                >
-                  {restoringId === gun.id ? (
-                    <Loader size={14} className="spin" />
-                  ) : (
-                    <RotateCcw size={14} />
-                  )}
-                  {restoringId === gun.id ? 'Restoring…' : 'Restore'}
-                </button>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    className="btn btn--outline btn--sm"
+                    onClick={() => handleRestore(gun.id)}
+                    disabled={restoringId === gun.id}
+                    title="Pulihkan ke katalog"
+                  >
+                    <RotateCcw size={14} /> Pulihkan (Restore)
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-btn icon-btn--danger"
+                    onClick={() => {
+                      if (window.confirm(`Hapus permanen "${gun.name}" dari arsip?`)) {
+                        deletePermanent(gun.id)
+                        setFeedback('Item dihapus permanen dari arsip.')
+                        setTimeout(() => setFeedback(''), 3000)
+                      }
+                    }}
+                    title="Hapus permanen"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

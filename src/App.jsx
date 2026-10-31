@@ -32,6 +32,30 @@ function App() {
   const cart = useCart()
   const [cartOpen, setCartOpen] = useState(false)
 
+  // Challenge 1: Direct link to shared gun (?gun=<id>)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const gunParam = params.get('gun')
+    if (gunParam) {
+      setShowSplash(false)
+      gunService.getGunById(gunParam)
+        .then((res) => {
+          if (res.success && res.data) {
+            setSelectedGun(res.data)
+            setMode('detail')
+          }
+        })
+        .catch(async () => {
+          const { default: GUNS_LOCAL } = await import('./data/guns.js')
+          const found = GUNS_LOCAL.find((g, i) => String(g.id || `local-${i}`) === String(gunParam) || String(g.id) === String(gunParam))
+          if (found) {
+            setSelectedGun(found)
+            setMode('detail')
+          }
+        })
+    }
+  }, [])
+
   // Unified navigation handler
   const handleNavigate = (target, payload) => {
     if (target === 'Create') {
@@ -44,12 +68,16 @@ function App() {
     } else if (target === 'Detail') {
       setSelectedGun(payload)
       setMode('detail')
+      if (payload?.id) {
+        window.history.pushState({}, '', `?gun=${payload.id}`)
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } else {
       setTab(target)
       setMode('list')
       setSelectedGun(null)
       setEditingGun(null)
+      window.history.pushState({}, '', window.location.pathname)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
@@ -58,6 +86,7 @@ function App() {
     setMode('list')
     setSelectedGun(null)
     setEditingGun(null)
+    window.history.pushState({}, '', window.location.pathname)
   }
 
   return (

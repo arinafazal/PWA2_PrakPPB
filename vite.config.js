@@ -25,6 +25,26 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        // Challenge 3: Runtime Query Caching for API requests (served from disk cache / ServiceWorker)
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) =>
+              url.origin.includes('supabase.co') ||
+              url.pathname.includes('/rest/v1') ||
+              url.pathname.includes('/api/v1'),
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'api-query-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24, // 24 jam disk cache
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+        ],
       },
     }),
   ],

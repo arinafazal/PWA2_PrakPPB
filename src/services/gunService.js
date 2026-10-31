@@ -207,47 +207,40 @@ class GunService {
   }
 
   /**
-   * Soft-delete (archive) a product — sets archived = true.
+   * Soft-delete (archive) a product — persists in archiveStorage.
    */
-  async archiveGun(id) {
-    if (IS_SUPABASE) {
-      const res = await apiClient.patch(
-        `/rest/v1/products?id=eq.${id}`,
-        { archived: true, updated_at: new Date().toISOString() },
-        { headers: { Prefer: 'return=representation' } },
-      )
-      return { success: true, data: Array.isArray(res) ? res[0] : res }
+  async archiveGun(gunOrId) {
+    let gun = gunOrId
+    if (typeof gunOrId === 'number' || typeof gunOrId === 'string') {
+      try {
+        const res = await this.getGunById(gunOrId)
+        if (res.success && res.data) gun = res.data
+        else gun = { id: gunOrId, name: `Hardware #${gunOrId}` }
+      } catch {
+        gun = { id: gunOrId, name: `Hardware #${gunOrId}` }
+      }
     }
-    return apiClient.patch(`/api/v1/recipes/${id}`, { archived: true })
+    const { archiveGunLocally } = await import('../utils/archiveStorage.js')
+    archiveGunLocally(gun)
+    return { success: true, data: gun }
   }
 
   /**
-   * Restore an archived product — sets archived = false.
+   * Restore an archived product from archiveStorage.
    */
   async restoreGun(id) {
-    if (IS_SUPABASE) {
-      const res = await apiClient.patch(
-        `/rest/v1/products?id=eq.${id}`,
-        { archived: false, updated_at: new Date().toISOString() },
-        { headers: { Prefer: 'return=representation' } },
-      )
-      return { success: true, data: Array.isArray(res) ? res[0] : res }
-    }
-    return apiClient.patch(`/api/v1/recipes/${id}`, { archived: false })
+    const { restoreGunLocally } = await import('../utils/archiveStorage.js')
+    restoreGunLocally(id)
+    return { success: true }
   }
 
   /**
-   * Fetch all archived products.
+   * Fetch all archived products from archiveStorage.
    */
   async getArchivedGuns() {
-    if (IS_SUPABASE) {
-      const data = await apiClient.get(
-        `/rest/v1/products?archived=eq.true&select=*&order=updated_at.desc`,
-      )
-      const list = Array.isArray(data) ? data.map(normalizeProduct) : []
-      return { success: true, data: list }
-    }
-    return { success: true, data: [] }
+    const { getArchivedGuns } = await import('../utils/archiveStorage.js')
+    const list = getArchivedGuns()
+    return { success: true, data: list }
   }
 }
 

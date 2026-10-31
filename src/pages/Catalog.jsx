@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { RefreshCw, Plus, Loader, AlertCircle, PackageOpen } from 'lucide-react'
 import { useGuns } from '../hooks/useGuns'
 import GUNS_LOCAL from '../data/guns'
@@ -7,6 +7,7 @@ import GunDetail from '../components/gun/GunDetail'
 import AdvancedFilter from '../components/common/AdvancedFilter'
 import ConfirmModal from '../components/modals/ConfirmModal'
 import gunService from '../services/gunService'
+import { isGunArchived, archiveGunLocally } from '../utils/archiveStorage'
 import {
   matchesSearch,
   matchesCategory,
@@ -15,27 +16,24 @@ import {
 } from '../utils/helpers'
 
 /**
- * Catalog page — the main product listing.
- *
- * Data source priority:
- *   1. Live API via useGuns()
- *   2. Local static array (GUNS_LOCAL) when the API is unreachable
- *
- * Features: search, category filter, sort, CRUD actions, detail modal.
+ * Catalog page — product listing with lazy loading on scroll (Challenge 2)
+ * and soft-delete/archive filter (Challenge 6).
  */
 export default function Catalog({ onNavigate, onAddToCart }) {
   // ---- API data ----
   const { guns: apiGuns, loading, error, refetch } = useGuns({ limit: 50 })
   const [useLocal, setUseLocal] = useState(false)
+  const [archiveVersion, setArchiveVersion] = useState(0)
 
-  // Decide data source
+  // Soft delete check
   const rawGuns = useMemo(() => {
+    let source = apiGuns
     if (useLocal || (error && apiGuns.length === 0)) {
-      // Enrich local data with synthetic ids so FavoriteButton and detail work
-      return GUNS_LOCAL.map((g, i) => ({ ...g, id: g.id || `local-${i}` }))
+      source = GUNS_LOCAL.map((g, i) => ({ ...g, id: g.id || `local-${i}` }))
     }
-    return apiGuns
-  }, [apiGuns, error, useLocal])
+    // Filter out archived (soft-deleted) items
+    return source.filter((g) => !isGunArchived(g.id))
+  }, [apiGuns, error, useLocal, archiveVersion])
 
   // ---- filters / sort ----
   const [search, setSearch] = useState('')
@@ -52,6 +50,43 @@ export default function Catalog({ onNavigate, onAddToCart }) {
     return sortItems(result, sortKey, sortOrder)
   }, [rawGuns, search, activeCategory, sortKey, sortOrder])
 
+  // ---- Challenge 2: Lazy Loading on Scroll (Infinite Scroll) ----
+  const BATCH_SIZE = 6
+  const [visibleCount, setVisibleCount] = useState(BATCH_SIZE)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const sentinelRef = useRef(null)
+
+  // Reset batch count when filter changes
+  useEffect(() => {
+    setVisibleCount(BATCH_SIZE)
+  }, [search, activeCategory, sortKey, sortOrder])
+
+  // IntersectionObserver to load more items on scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && visibleCount < filteredGuns.length) {
+          setIsLoadingMore(true)
+          setTimeout(() => {
+            setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, filteredGuns.length))
+            setIsLoadingMore(false)
+          }, 300)
+        }
+      },
+      { threshold: 0.1, rootMargin: '120px' },
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [filteredGuns.length, visibleCount])
+
+  const displayedGuns = useMemo(() => {
+    return filteredGuns.slice(0, visibleCount)
+  }, [filteredGuns, visibleCount])
+
   // ---- detail view ----
   const [selectedGun, setSelectedGun] = useState(null)
 
@@ -59,6 +94,19 @@ export default function Catalog({ onNavigate, onAddToCart }) {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const [toastMsg, setToastMsg] = useState('')
+
+  const showToast = (msg) => {
+    setToastMsg(msg)
+    setTimeout(() => setToastMsg(''), 3000)
+  }
+
+  // Soft Delete / Archive handler
+  const handleArchive = (gun) => {
+    archiveGunLocally(gun)
+    setArchiveVersion((v) => v + 1)
+    showToast(`"${gun.name}" dipindahkan ke Arsip (Soft Deleted).`)
+  }
 
   const handleDelete = async () => {
     if (!deleteTarget) return
@@ -80,10 +128,18 @@ export default function Catalog({ onNavigate, onAddToCart }) {
     return (
       <GunDetail
         gun={selectedGun}
-        onBack={() => setSelectedGun(null)}
+        onBack={() => {
+          setSelectedGun(null)
+          window.history.replaceState({}, '', window.location.pathname)
+        }}
         onEdit={(g) => onNavigate && onNavigate('Edit', g)}
         onDelete={(g) => { setSelectedGun(null); setDeleteTarget(g) }}
         onAddToCart={onAddToCart}
+        onArchive={(g) => {
+          handleArchive(g)
+          setSelectedGun(null)
+          window.history.replaceState({}, '', window.location.pathname)
+        }}
       />
     )
   }
@@ -99,12 +155,18 @@ export default function Catalog({ onNavigate, onAddToCart }) {
         </p>
       </section>
 
+      {toastMsg && (
+        <div className="toast toast--success" style={{ margin: '16px 0' }}>
+          {toastMsg}
+        </div>
+      )}
+
       <section>
         <div className="list-head">
           <h2>Current stock</h2>
           <div className="list-head-right">
             <span className="count">
-              {filteredGuns.length} piece{filteredGuns.length !== 1 ? 's' : ''}
+              Showing {displayedGuns.length} of {filteredGuns.length} piece{filteredGuns.length !== 1 ? 's' : ''}
             </span>
             {onNavigate && (
               <button
@@ -164,20 +226,38 @@ export default function Catalog({ onNavigate, onAddToCart }) {
           </div>
         )}
 
-        {/* Product grid */}
-        {filteredGuns.length > 0 && (
+        {/* Product grid with Lazy Loading */}
+        {displayedGuns.length > 0 && (
           <ul className="stock">
-            {filteredGuns.map((gun) => (
+            {displayedGuns.map((gun) => (
               <GunCard
                 key={gun.id || gun.name}
                 gun={gun}
-                onSelect={setSelectedGun}
+                onSelect={(g) => {
+                  setSelectedGun(g)
+                  window.history.replaceState({}, '', `?gun=${g.id}`)
+                }}
                 onEdit={onNavigate ? (g) => onNavigate('Edit', g) : undefined}
                 onDelete={setDeleteTarget}
                 onAddToCart={onAddToCart}
+                onArchive={handleArchive}
               />
             ))}
           </ul>
+        )}
+
+        {/* Sentinel for lazy loading on scroll */}
+        {visibleCount < filteredGuns.length && (
+          <div
+            ref={sentinelRef}
+            className="state-box"
+            style={{ padding: '20px', margin: '20px 0', borderStyle: 'dashed' }}
+          >
+            <Loader size={20} className="spin" />
+            <p style={{ margin: 0, fontSize: '0.9rem' }}>
+              Scroll down to load more weapons ({visibleCount}/{filteredGuns.length})…
+            </p>
+          </div>
         )}
 
         {useLocal && (
@@ -197,7 +277,7 @@ export default function Catalog({ onNavigate, onAddToCart }) {
       {/* Delete confirmation */}
       <ConfirmModal
         open={!!deleteTarget}
-        title="Delete Product"
+        title="Delete Hardware Record"
         message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
         confirmLabel="Delete"
         danger
