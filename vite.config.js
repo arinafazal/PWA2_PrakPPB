@@ -24,28 +24,27 @@ export default defineConfig({
         ],
       },
       workbox: {
+        clientsClaim: true,
+        skipWaiting: true,
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
-        // Challenge 3: Runtime Query Caching for API requests (served from disk cache / ServiceWorker)
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) =>
-              url.origin.includes('supabase.co') ||
-              url.pathname.includes('/rest/v1') ||
-              url.pathname.includes('/api/v1'),
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'api-query-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24, // 24 jam disk cache
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-        ],
+        // Note: API requests (/rest/v1) are intentionally NOT intercepted by ServiceWorker
+        // so that the browser's native HTTP cache handles them, displaying (disk cache)
+        // in DevTools Network tab instead of (ServiceWorker).
       },
     }),
   ],
+  server: {
+    proxy: {
+      '/rest/v1': {
+        target: 'https://sxunubxupdxyupnebuid.supabase.co',
+        changeOrigin: true,
+        secure: false,
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            proxyRes.headers['cache-control'] = 'public, max-age=86400'
+          })
+        },
+      },
+    },
+  },
 })

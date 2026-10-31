@@ -20,16 +20,6 @@ export function useGuns(params = {}) {
   const paramKey = JSON.stringify(params)
 
   const fetchGuns = useCallback(async () => {
-    const cacheKey = 'guns:' + JSON.stringify(params)
-
-    // Serve from cache if available
-    const cached = getCached(cacheKey)
-    if (cached) {
-      setGuns(cached)
-      setLoading(false)
-      return
-    }
-
     try {
       setLoading(true)
       setError(null)
@@ -39,7 +29,6 @@ export function useGuns(params = {}) {
       if (response.success) {
         setGuns(response.data || [])
         setPagination(response.pagination || null)
-        setCached(cacheKey, response.data || [])
       } else {
         setError(response.message || 'Failed to fetch products.')
       }
@@ -52,9 +41,8 @@ export function useGuns(params = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paramKey])
 
-  // Manual refetch always bypasses cache
+  // Manual refetch
   const refetch = useCallback(async () => {
-    invalidateCacheByPrefix('guns:')
     await fetchGuns()
   }, [fetchGuns])
 

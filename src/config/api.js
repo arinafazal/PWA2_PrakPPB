@@ -4,20 +4,15 @@ import axios from 'axios'
 // Base URL & Supabase Key Configuration
 // Read from environment variables (.env)
 // ---------------------------------------------------------------------------
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+// In order to enable browser HTTP disk caching (showing (disk cache) in Network tab),
+// all API queries are routed through the same-origin proxy (/rest/v1) which returns Cache-Control headers.
+const BASE_URL = ''
 const SUPABASE_KEY =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  ''
+  'sb_publishable_TXg9-r3ZVI8YZMzE90nwsQ_PU9GAmzg'
 
-const IS_SUPABASE =
-  BASE_URL.includes('supabase.co') || Boolean(SUPABASE_KEY)
-
-if (!BASE_URL) {
-  console.warn(
-    '[api] VITE_API_BASE_URL is not set. API requests will use relative paths.',
-  )
-}
+const IS_SUPABASE = true
 
 // ---------------------------------------------------------------------------
 // Axios instance
