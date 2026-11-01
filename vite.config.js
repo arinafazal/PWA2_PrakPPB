@@ -7,8 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
-      devOptions: { enabled: true },
+      selfDestroying: true, // Forces unregistration of service worker so Network tab uses native (disk cache)
       manifest: {
         name: 'Bore & Barrel',
         short_name: 'Bore & Barrel',
@@ -23,28 +22,6 @@ export default defineConfig({
           { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
         ],
       },
-      workbox: {
-        clientsClaim: true,
-        skipWaiting: true,
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
-        // Note: API requests (/rest/v1) are intentionally NOT intercepted by ServiceWorker
-        // so that the browser's native HTTP cache handles them, displaying (disk cache)
-        // in DevTools Network tab instead of (ServiceWorker).
-      },
     }),
   ],
-  server: {
-    proxy: {
-      '/rest/v1': {
-        target: 'https://sxunubxupdxyupnebuid.supabase.co',
-        changeOrigin: true,
-        secure: false,
-        configure: (proxy) => {
-          proxy.on('proxyRes', (proxyRes) => {
-            proxyRes.headers['cache-control'] = 'public, max-age=86400'
-          })
-        },
-      },
-    },
-  },
 })

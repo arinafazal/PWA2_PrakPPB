@@ -4,9 +4,9 @@ import axios from 'axios'
 // Base URL & Supabase Key Configuration
 // Read from environment variables (.env)
 // ---------------------------------------------------------------------------
-// In order to enable browser HTTP disk caching (showing (disk cache) in Network tab),
-// all API queries are routed through the same-origin proxy (/rest/v1) which returns Cache-Control headers.
-const BASE_URL = ''
+const BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  'https://sxunubxupdxyupnebuid.supabase.co'
 const SUPABASE_KEY =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
